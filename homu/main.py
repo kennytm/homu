@@ -22,6 +22,7 @@ import sys
 import subprocess
 from .git_helper import SSH_KEY_FILE
 import shlex
+import weakref
 
 STATUS_TO_PRIORITY = {
     'success': 0,
@@ -346,9 +347,15 @@ class PullReqState:
         return treeclosed if self.priority < treeclosed else None
 
     def start_testing(self, timeout):
+        weak_timed_out_method = weakref.WeakMethod(self.timed_out)
+        def send_timed_out():
+            strong_timed_out_method = weak_timed_out_method()
+            if strong_timed_out_method:
+                strong_timed_out_method()
+
         self.test_started = time.time()     # FIXME: Save in the local database
         self.set_status('pending')
-        timer = Timer(timeout, self.timed_out)
+        timer = Timer(timeout, send_timed_out)
         timer.start()
         self.timeout_timer = timer
 
